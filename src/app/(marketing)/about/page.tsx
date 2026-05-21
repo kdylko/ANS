@@ -6,12 +6,12 @@ import { breadcrumbJsonLd, siteConfig } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Analysts Network State is an independent research firm publishing institutional-grade work on global markets and capital allocation.",
+    "Alpha Network State is an independent research firm publishing institutional-grade work on global markets and capital allocation.",
   alternates: { canonical: "/about" },
   openGraph: {
     title: `About · ${siteConfig.name}`,
     description:
-      "Analysts Network State is an independent research firm publishing institutional-grade work on global markets and capital allocation.",
+      "Alpha Network State is an independent research firm publishing institutional-grade work on global markets and capital allocation.",
     url: `${siteConfig.url}/about`,
   },
 };
@@ -188,10 +188,10 @@ export default function AboutPage() {
           <p className="mt-4 text-muted">
             Editorial and member inquiries:{" "}
             <a
-              href="mailto:editorial@analystsnetworkstate.com"
+              href="mailto:editorial@alphanetworkstate.com"
               className="text-accent underline underline-offset-4"
             >
-              editorial@analystsnetworkstate.com
+              editorial@alphanetworkstate.com
             </a>
           </p>
         </div>

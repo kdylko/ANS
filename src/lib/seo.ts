@@ -1,13 +1,13 @@
 export const siteConfig = {
-  name: "Analysts Network State",
+  name: "Alpha Network State",
   shortName: "ANS",
   description:
     "Institutional-grade research on global markets, macro policy, and capital allocation — written by analysts, for analysts.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://analystsnetworkstate.com",
-  twitter: "@analystsnetwork",
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://alphanetworkstate.com",
+  twitter: "@alphanetwork",
   socials: [
-    "https://twitter.com/analystsnetwork",
-    "https://www.linkedin.com/company/analysts-network-state",
+    "https://twitter.com/alphanetwork",
+    "https://www.linkedin.com/company/alpha-network-state",
   ],
 } as const;
 

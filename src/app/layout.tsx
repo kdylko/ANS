@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     "macroeconomic outlook",
     "equity research",
     "investment newsletter",
-    "Analysts Network State",
+    "Alpha Network State",
   ],
   authors: [{ name: siteConfig.name }],
   creator: siteConfig.name,

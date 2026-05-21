@@ -9,12 +9,12 @@ import { breadcrumbJsonLd, siteConfig } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Insights",
   description:
-    "Daily briefings and weekly deep dives from the Analysts Network State research desk.",
+    "Daily briefings and weekly deep dives from the Alpha Network State research desk.",
   alternates: { canonical: "/insights" },
   openGraph: {
     title: `Insights · ${siteConfig.name}`,
     description:
-      "Daily briefings and weekly deep dives from the Analysts Network State research desk.",
+      "Daily briefings and weekly deep dives from the Alpha Network State research desk.",
     url: `${siteConfig.url}/insights`,
   },
 };

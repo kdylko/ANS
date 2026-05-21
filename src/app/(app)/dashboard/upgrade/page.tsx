@@ -56,7 +56,7 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
         Confirm your membership
       </h1>
       <p className="mt-3 text-muted">
-        You&apos;re about to start an Analysts Network State Pro membership.
+        You&apos;re about to start an Alpha Network State Pro membership.
         Please confirm the details below.
       </p>
 
