@@ -1,15 +1,52 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+
+import { createClient } from "@/lib/supabase/client";
 
 const buttonClass =
-  "flex w-full items-center justify-center gap-2 rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-900";
+  "flex w-full items-center justify-center gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60";
 
 export function OAuthButtons() {
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSignIn = async (provider: "google") => {
+    setError(null);
+    setLoading(provider);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setLoading(null);
+      setError(error.message);
+    }
+    // On success, supabase-js navigates the window to the provider URL.
+  };
+
   return (
     <div className="flex flex-col gap-2">
-      <Link href="/auth/oauth?provider=google" className={buttonClass}>
+      <button
+        type="button"
+        onClick={() => handleSignIn("google")}
+        disabled={loading !== null}
+        className={buttonClass}
+      >
         <GoogleIcon />
-        Continue with Google
-      </Link>
+        {loading === "google" ? "Redirecting…" : "Continue with Google"}
+      </button>
+
+      {error && (
+        <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
