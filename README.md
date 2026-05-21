@@ -26,8 +26,57 @@ Open [http://localhost:3000](http://localhost:3000).
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | client + server | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | Supabase anon (public) key |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Used to write to the RLS-locked `subscriptions` table. Never expose to the browser. |
+| `NEXT_PUBLIC_SITE_URL` | server (SEO) | Production canonical URL, e.g. `https://your-domain.com`. |
 
-The `service_role` key is **never** used in this project — all data access goes through RLS with the anon key.
+The `service_role` key bypasses RLS and must stay on the server. The dashboard's
+subscription writes go through `src/lib/supabase/admin.ts`, which is marked
+`server-only` so it cannot be accidentally imported into client code.
+
+## Database schema
+
+The `subscriptions` table is RLS-locked (no anon/authenticated policies), so only
+the admin client (service_role) can read or write it. Run the following SQL in
+your Supabase SQL editor to provision the table:
+
+```sql
+create extension if not exists pgcrypto;
+
+create table if not exists public.subscriptions (
+    id              uuid primary key default gen_random_uuid(),
+    license_key     text not null unique,
+    status          text not null default 'active'
+                    check (status in ('active', 'expired', 'cancelled')),
+    valid_until     timestamptz,
+    email           text,
+    telegram_id     bigint unique,
+    tg_username     text,
+    bound_at        timestamptz,
+    last_invite_at  timestamptz,
+    created_at      timestamptz not null default now(),
+    updated_at      timestamptz not null default now()
+);
+
+create index if not exists subscriptions_status_idx
+    on public.subscriptions (status);
+create index if not exists subscriptions_telegram_id_idx
+    on public.subscriptions (telegram_id);
+
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+    new.updated_at = now();
+    return new;
+end;
+$$;
+
+drop trigger if exists subscriptions_set_updated_at on public.subscriptions;
+create trigger subscriptions_set_updated_at
+before update on public.subscriptions
+for each row execute function public.set_updated_at();
+
+alter table public.subscriptions enable row level security;
+```
 
 ## Project structure
 
