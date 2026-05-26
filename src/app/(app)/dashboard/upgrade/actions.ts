@@ -1,24 +1,33 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 
+import { getActiveSubscriptionByEmail, type PlanId } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
+import { getOrCreateStripeCustomer } from "@/lib/stripe-checkout";
 import {
-  createSubscription,
-  getActiveSubscriptionByEmail,
-} from "@/lib/billing";
+  getPriceIdForPlan,
+  getSiteUrl,
+  getStripe,
+  isStripeConfigured,
+} from "@/lib/stripe";
 
-export async function confirmUpgrade(formData: FormData) {
+export async function startCheckout(formData: FormData) {
   const planValue = formData.get("plan");
-  const plan: "monthly" | "annual" = planValue === "annual" ? "annual" : "monthly";
+  const plan: PlanId = planValue === "annual" ? "annual" : "monthly";
+
+  if (!isStripeConfigured()) {
+    redirect(
+      `/dashboard/upgrade?error=${encodeURIComponent("Stripe is not configured")}`,
+    );
+  }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !user.email) {
+  if (!user?.email) {
     redirect("/login");
   }
 
@@ -27,13 +36,40 @@ export async function confirmUpgrade(formData: FormData) {
     redirect("/dashboard?status=already-active");
   }
 
+  let checkoutUrl: string;
+
   try {
-    await createSubscription({ email: user.email, plan });
+    const stripe = getStripe();
+    const customerId = await getOrCreateStripeCustomer(user.id, user.email);
+    const siteUrl = getSiteUrl();
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "subscription",
+      line_items: [{ price: getPriceIdForPlan(plan), quantity: 1 }],
+      success_url: `${siteUrl}/dashboard?status=success`,
+      cancel_url: `${siteUrl}/dashboard/upgrade?checkout=cancelled&plan=${plan}`,
+      metadata: {
+        supabase_user_id: user.id,
+        plan,
+      },
+      subscription_data: {
+        metadata: {
+          supabase_user_id: user.id,
+          plan,
+        },
+      },
+    });
+
+    if (!session.url) {
+      throw new Error("Stripe did not return a checkout URL");
+    }
+
+    checkoutUrl = session.url;
   } catch (err) {
-    const message = err instanceof Error ? err.message : "subscription-failed";
+    const message = err instanceof Error ? err.message : "checkout-failed";
     redirect(`/dashboard/upgrade?error=${encodeURIComponent(message)}`);
   }
 
-  revalidatePath("/dashboard");
-  redirect("/dashboard?status=subscribed");
+  redirect(checkoutUrl);
 }

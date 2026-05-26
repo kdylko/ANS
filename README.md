@@ -27,11 +27,56 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_SUPABASE_URL` | client + server | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | Supabase anon (public) key |
 | `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Used to write to the RLS-locked `subscriptions` table. Never expose to the browser. |
-| `NEXT_PUBLIC_SITE_URL` | server (SEO) | Production canonical URL, e.g. `https://your-domain.com`. |
+| `NEXT_PUBLIC_SITE_URL` | server (SEO, Stripe redirects) | Production canonical URL, e.g. `https://your-domain.com`. |
+| `STRIPE_SECRET_KEY` | **server only** | Stripe secret key (`sk_test_` / `sk_live_`). |
+| `STRIPE_WEBHOOK_SECRET` | **server only** | Webhook signing secret (`whsec_...`). Local: from `stripe listen`. |
+| `STRIPE_PRICE_MONTHLY` | server | Price ID for $199/month plan (`price_...`). |
+| `STRIPE_PRICE_ANNUAL` | server | Price ID for annual plan (`price_...`). |
 
-The `service_role` key bypasses RLS and must stay on the server. The dashboard's
-subscription writes go through `src/lib/supabase/admin.ts`, which is marked
-`server-only` so it cannot be accidentally imported into client code.
+The `service_role` key bypasses RLS and must stay on the server. Subscription and
+Stripe mirror tables are written via `src/lib/supabase/admin.ts` (`server-only`).
+
+## Stripe
+
+1. Run `supabase/migrations/001_stripe_tables.sql` in the Supabase SQL editor (after `subscriptions` table exists).
+2. Add Stripe env vars to `.env.local` and Vercel.
+3. **Local webhooks:** `stripe listen --forward-to localhost:3000/api/stripe/webhook` — put the CLI `whsec_` in `.env.local` (not the Dashboard secret).
+4. **Production webhook:** see [Stripe webhook (production)](#stripe-webhook-production) below.
+
+Checkout flow: `/dashboard/upgrade` → Stripe Checkout → webhook provisions `subscriptions` + license key.
+
+### Stripe webhook (production)
+
+Use a **separate** webhook endpoint and signing secret for production. Do not reuse the `whsec_` from `stripe listen`.
+
+1. Deploy the site to Vercel so `https://<your-domain>/api/stripe/webhook` is reachable.
+2. In [Stripe Dashboard → Developers → Webhooks](https://dashboard.stripe.com/webhooks):
+   - For **test payments on prod URL**: stay in **Test mode** → **Add endpoint**
+   - For **real charges**: switch to **Live mode** → create another endpoint (and use `sk_live_` + live Price IDs on Vercel)
+3. **Endpoint URL:** `https://<your-domain>/api/stripe/webhook`  
+   Example: `https://ans-xxx.vercel.app/api/stripe/webhook` or your custom domain.
+4. **Events to send** (select these):
+   - `checkout.session.completed`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.paid`
+   - `invoice.payment_failed`
+5. After creating the endpoint, open it → **Signing secret** → **Reveal** → copy `whsec_...`
+6. **Vercel** → Project → Settings → Environment Variables:
+   - `STRIPE_WEBHOOK_SECRET` = that `whsec_` (scope: **Production** only, or Production + Preview if you test there)
+   - `NEXT_PUBLIC_SITE_URL` = `https://<your-domain>` (no trailing slash)
+   - Same for `STRIPE_SECRET_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, Supabase keys
+7. **Redeploy** the Vercel project (env changes are not applied until redeploy).
+8. In Stripe → Webhooks → your endpoint → **Send test webhook** → `checkout.session.completed` → expect **200**.
+9. **Supabase** → Authentication → URL Configuration: add `https://<your-domain>/auth/callback` to Redirect URLs and set Site URL to your prod domain.
+
+**Local vs production secrets**
+
+| Environment | `STRIPE_WEBHOOK_SECRET` source |
+|-------------|-------------------------------|
+| Local (`npm run dev`) | Output of `stripe listen` |
+| Vercel Production | Signing secret from Dashboard endpoint (step 5) |
 
 ## Database schema
 
@@ -77,6 +122,8 @@ for each row execute function public.set_updated_at();
 
 alter table public.subscriptions enable row level security;
 ```
+
+Stripe tables: see `supabase/migrations/001_stripe_tables.sql`.
 
 ## Project structure
 

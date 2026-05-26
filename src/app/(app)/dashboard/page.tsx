@@ -11,7 +11,9 @@ import {
   PRICING,
   type SubscriptionRow,
 } from "@/lib/billing";
+import { getStripeCustomerByUserId } from "@/lib/stripe-db";
 import { siteConfig } from "@/lib/seo";
+import { openBillingPortal } from "./actions";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -45,6 +47,7 @@ export default async function DashboardPage({
     ? await getActiveSubscriptionByEmail(user.email)
     : null;
 
+  const stripeCustomer = await getStripeCustomerByUserId(user.id);
   const isLive = subscription ? isSubscriptionLive(subscription) : false;
   const recent = articles.slice(0, 4);
 
@@ -71,7 +74,11 @@ export default async function DashboardPage({
       <FlashMessage status={flashStatus} error={flashError} />
 
       <div className="mt-10 grid gap-6 md:grid-cols-3">
-        <SubscriptionCard subscription={subscription} isLive={isLive} />
+        <SubscriptionCard
+          subscription={subscription}
+          isLive={isLive}
+          hasStripeCustomer={Boolean(stripeCustomer)}
+        />
         <AccountCard user={user} />
       </div>
 
@@ -134,11 +141,19 @@ function FlashMessage({
   status?: string;
   error?: string;
 }) {
-  if (status === "subscribed") {
+  if (status === "subscribed" || status === "success") {
     return (
       <div className="mt-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        <strong>Subscription activated.</strong> Your license key is below — use
-        it to verify your access in the Telegram bot.
+        <strong>Payment received.</strong> Your subscription is being activated —
+        refresh in a moment if your license key is not shown yet. Use it in the
+        ANS Telegram bot when ready.
+      </div>
+    );
+  }
+  if (status === "checkout-cancelled") {
+    return (
+      <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Checkout was cancelled. You can try again anytime from Upgrade to Pro.
       </div>
     );
   }
@@ -162,9 +177,11 @@ function FlashMessage({
 function SubscriptionCard({
   subscription,
   isLive,
+  hasStripeCustomer,
 }: {
   subscription: SubscriptionRow | null;
   isLive: boolean;
+  hasStripeCustomer: boolean;
 }) {
   if (!subscription) {
     return (
@@ -267,13 +284,16 @@ function SubscriptionCard({
         >
           Read latest research
         </Link>
-        <button
-          type="button"
-          disabled
-          className="inline-flex cursor-not-allowed items-center justify-center rounded-md border border-border bg-card px-5 py-2.5 text-sm font-semibold text-muted opacity-70"
-        >
-          Manage billing
-        </button>
+        {hasStripeCustomer ? (
+          <form action={openBillingPortal}>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-md border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-stone-100"
+            >
+              Manage billing
+            </button>
+          </form>
+        ) : null}
       </div>
     </div>
   );

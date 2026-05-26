@@ -7,7 +7,7 @@ import {
   getActiveSubscriptionByEmail,
   PRICING,
 } from "@/lib/billing";
-import { confirmUpgrade } from "./actions";
+import { startCheckout } from "./actions";
 
 export const metadata: Metadata = {
   title: "Confirm upgrade",
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 type UpgradePageProps = {
-  searchParams: Promise<{ error?: string; plan?: string }>;
+  searchParams: Promise<{ error?: string; plan?: string; checkout?: string }>;
 };
 
 const featuresIncluded = [
@@ -28,7 +28,7 @@ const featuresIncluded = [
 ];
 
 export default async function UpgradePage({ searchParams }: UpgradePageProps) {
-  const { error, plan: planParam } = await searchParams;
+  const { error, plan: planParam, checkout } = await searchParams;
   const plan = planParam === "annual" ? "annual" : "monthly";
   const planConfig = PRICING[plan];
 
@@ -110,11 +110,16 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
         </div>
 
         <div className="border-t border-border bg-stone-50 px-6 py-4 text-xs text-muted">
-          <strong className="text-foreground">Demo mode:</strong> Payment
-          processing is not yet enabled. Clicking <em>Confirm</em> will
-          provision an active subscription and generate a license key.
+          You will be redirected to Stripe to enter payment details securely.
+          Your license key appears on the dashboard after payment is confirmed.
         </div>
       </div>
+
+      {checkout === "cancelled" && (
+        <p className="mt-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Checkout was cancelled. You can try again when ready.
+        </p>
+      )}
 
       {error && (
         <p className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -122,13 +127,13 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
         </p>
       )}
 
-      <form action={confirmUpgrade} className="mt-8 flex flex-wrap gap-3">
+      <form action={startCheckout} className="mt-8 flex flex-wrap gap-3">
         <input type="hidden" name="plan" value={plan} />
         <button
           type="submit"
           className="inline-flex items-center justify-center rounded-md bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/90"
         >
-          Confirm &amp; subscribe — ${planConfig.amount}/{planConfig.interval}
+          Continue to Stripe — ${planConfig.amount}/{planConfig.interval}
         </button>
         <Link
           href="/dashboard"
@@ -139,8 +144,8 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
       </form>
 
       <p className="mt-6 text-xs text-muted-foreground">
-        By clicking Confirm you agree to our terms of service. You can cancel
-        anytime from your dashboard.
+        By continuing you agree to our terms of service. You can cancel anytime
+        from your dashboard via Manage billing.
       </p>
     </div>
   );

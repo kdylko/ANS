@@ -1,6 +1,10 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  formatPostgrestError,
+  isNoRowsError,
+} from "@/lib/supabase/errors";
 
 export type SubscriptionStatus = "active" | "expired" | "cancelled";
 
@@ -17,6 +21,8 @@ export type SubscriptionRow = {
   created_at: string;
   updated_at: string;
 };
+
+export type PlanId = "monthly" | "annual";
 
 export const PRICING = {
   monthly: {
@@ -60,7 +66,13 @@ export async function getActiveSubscriptionByEmail(
       .maybeSingle();
 
     if (error) {
-      console.error("[billing] getActiveSubscriptionByEmail:", error);
+      if (isNoRowsError(error)) {
+        return null;
+      }
+      console.error(
+        "[billing] getActiveSubscriptionByEmail:",
+        formatPostgrestError(error),
+      );
       return null;
     }
 
@@ -77,13 +89,16 @@ export async function getActiveSubscriptionByEmail(
  */
 export async function createSubscription(input: {
   email: string;
-  plan?: "monthly" | "annual";
+  plan?: PlanId;
+  validUntil?: Date;
 }): Promise<SubscriptionRow> {
-  const plan = input.plan ?? "monthly";
-  const periodDays = PRICING[plan].periodDays;
-
-  const validUntil = new Date();
-  validUntil.setUTCDate(validUntil.getUTCDate() + periodDays);
+  let validUntil = input.validUntil;
+  if (!validUntil) {
+    const plan = input.plan ?? "monthly";
+    const periodDays = PRICING[plan].periodDays;
+    validUntil = new Date();
+    validUntil.setUTCDate(validUntil.getUTCDate() + periodDays);
+  }
 
   const admin = createAdminClient();
   const { data, error } = await admin
